@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.1, 16 October 2026
+
+- Reject stale returned undo state despite a correctly restored independent store.
+- Compare returned owned and protected projections with observations after commit and undo.
+- Check input immutability on all confirmed undo paths.
+- Reject proposals containing non-JSON values.
+- Add four regression tests, for twenty self-tests total.
+
+
 ## 0.1.0, 16 October 2026
 
 - Ten application workflow contract checks with positive controls and exact rejection classification.

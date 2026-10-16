@@ -83,7 +83,7 @@ Primary project: https://github.com/adeelfalaksher900-creator/dayweave (private 
 
 ## Development and research
 
-The 16 self-tests include official SDK integration, deliberately broken workflows, independent-observer failure, classified rejection, deterministic output and CLI exit behavior. Source dependencies are pinned in package-lock.json. No telemetry is sent by the harness. The probe contacts only the endpoint explicitly supplied by its caller.
+The 20 self-tests include official SDK integration, deliberately broken workflows, independent-observer failure, classified rejection, deterministic output and CLI exit behavior. Source dependencies are pinned in package-lock.json. No telemetry is sent by the harness. The probe contacts only the endpoint explicitly supplied by its caller.
 
 The [official MCP Inspector](https://github.com/modelcontextprotocol/inspector) provides general server inspection. MCP Rehearsal focuses on repeatable application approval/recovery contracts.
 
@@ -99,3 +99,7 @@ Codex assisted design, source implementation, tests and documentation under Adee
 ## License
 
 MIT. The official MCP SDK and its dependencies retain their own licenses.
+
+## 0.1.1 reliability review
+
+The harness now rejects stale undo responses even when an independent store was restored correctly. It checks returned owned and protected projections against that observer after commit and undo, enforces input immutability on every confirmed undo path, and rejects non-JSON proposals. Four reproductions failed against 0.1.0 before these fixes and pass as regression tests in 0.1.1. The public test fixtures include an independently observed in-memory store, not a production provider.

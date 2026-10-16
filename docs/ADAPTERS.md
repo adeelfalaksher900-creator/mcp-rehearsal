@@ -20,7 +20,7 @@ All state, receipts, proposals, observations and projections must be finite, acy
 | viewProtected(observedState) | JSON projection of unrelated records that must survive |
 | classifyError(error) | approval-required, stale-context or service-unavailable only for recognized expected errors; otherwise return unexpected |
 
-All methods except classifyError may return promises. Projections are applied to observed domain state. The returned state's owned projection must agree with the observer after a successful commit. Expected owned snapshots are captured before later writes, avoiding comparison with a moving external observer.
+All methods except classifyError may return promises. Projections are applied to observed domain state. After both successful commit and undo, the returned state's owned and protected projections must agree with the observer. Every confirmed undo must leave its input unchanged. Prepared proposals are checked for finite JSON values. Expected owned snapshots are captured before later writes, avoiding comparison with a moving external observer.
 
 Do not classify any thrown exception as an expected rejection. An authentication failure, missing tool, network timeout or malformed response should fail the check. If your server encodes a domain error as an MCP tool result, inspect isError and the exact domain error before classifying it.
 

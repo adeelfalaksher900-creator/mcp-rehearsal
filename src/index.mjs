@@ -23,6 +23,15 @@ export async function rehearseWorkflow(adapter,{name='Workflow'}={}){
  const observation=async s=>snapshot(await observed(s));
  const owned=async s=>snapshot(await adapter.viewOwned(await observed(s)));
  const protectedData=async s=>snapshot(await adapter.viewProtected(await observed(s)));
+ const returnedAgrees=async(s,operation)=>{
+  snapshot(s);const current=await observed(s);
+  assert(snapshot(await adapter.viewOwned(current))===snapshot(await adapter.viewOwned(s)),`${operation} returned owned data disagrees with the observer`);
+  assert(snapshot(await adapter.viewProtected(current))===snapshot(await adapter.viewProtected(s)),`${operation} returned protected data disagrees with the observer`);
+ };
+ const undo=async s=>{
+  const before=snapshot(s),restored=await adapter.undo(s,{confirmed:true});
+  unchanged(before,s,'Undo mutated its input state');await returnedAgrees(restored,'Undo');return restored;
+ };
  const commit=async(s,p,key,{replay=false}={})=>{
   const before=snapshot(s),ownedBefore=await owned(s),protectedBefore=await protectedData(s),observedBefore=await observation(s),r=await adapter.commit(s,p,{key,confirmed:true});
   unchanged(before,s,'Commit mutated its input state');
@@ -30,7 +39,7 @@ export async function rehearseWorkflow(adapter,{name='Workflow'}={}){
   snapshot(r.state);
   if(!replay)assert(ownedBefore!==await owned(r.state),'Approved commit made no observable owned change');
   if(replay)assert(observedBefore===await observation(r.state),'Replay changed independently observed state');
-  assert(await owned(r.state)===snapshot(await adapter.viewOwned(r.state)),'Returned owned data disagrees with the observer');
+  await returnedAgrees(r.state,'Commit');
   assert(protectedBefore===await protectedData(r.state),'Commit changed protected data');return r;
  };
  const rejectedUnchanged=async(s,operation,category,detail)=>{
@@ -42,7 +51,7 @@ export async function rehearseWorkflow(adapter,{name='Workflow'}={}){
  const cases=[
   ['prepare-read-only','Prepare does not write',async()=>{
    const s=await adapter.createState(),before=snapshot(s),observedBefore=await observation(s),p=await adapter.prepare(s,a);
-   assert(p!==null&&p!==undefined,'Prepare did not return a proposal');unchanged(before,s,'Prepare mutated its input state');assert(observedBefore===await observation(s),'Prepare changed the observed state');
+   assert(p!==null&&p!==undefined,'Prepare did not return a proposal');snapshot(p);unchanged(before,s,'Prepare mutated its input state');assert(observedBefore===await observation(s),'Prepare changed the observed state');
   }],
   ['approval-required','Commit requires explicit approval',async()=>{
    const s=await adapter.createState(),p=await adapter.prepare(s,a);
@@ -70,8 +79,7 @@ export async function rehearseWorkflow(adapter,{name='Workflow'}={}){
     const s=await adapter.createState(),originalOwned=await owned(s),first=await commit(s,await adapter.prepare(s,a),'rehearsal-scope'),originalProtected=await protectedData(first.state);
     const changed=await adapter.changeProtected(structuredClone(first.state),kind),protectedBefore=await protectedData(changed);
     assert(protectedBefore!==originalProtected,'Adapter did not change protected data');
-    const inputBefore=snapshot(changed),restored=await adapter.undo(changed,{confirmed:true});
-    unchanged(inputBefore,changed,'Undo mutated its input state');
+    const restored=await undo(changed);
     assert(protectedBefore===await protectedData(restored),'Undo overwrote unrelated data');
     assert(originalOwned===await owned(restored),'Undo did not restore the original owned data');
    }
@@ -80,13 +88,13 @@ export async function rehearseWorkflow(adapter,{name='Workflow'}={}){
    const s=await adapter.createState(),first=await commit(s,await adapter.prepare(s,a),'rehearsal-first');
    const firstOwned=await owned(first.state),second=await commit(first.state,await adapter.prepare(first.state,b),'rehearsal-second');
    assert(firstOwned!==await owned(second.state),'Adapter options did not produce different owned data');
-   const restored=await adapter.undo(second.state,{confirmed:true});
+   const restored=await undo(second.state);
    assert(firstOwned===await owned(restored),'Undo did not restore the prior approved change');
   }],
   ['undo-approval','Undo also requires explicit approval',async()=>{
    const s=await adapter.createState(),originalOwned=await owned(s),first=await commit(s,await adapter.prepare(s,a),'rehearsal-undo-consent');
    await rejectedUnchanged(first.state,()=>adapter.undo(first.state,{confirmed:false}),'approval-required','Unconfirmed undo succeeded');
-   const restored=await adapter.undo(first.state,{confirmed:true});
+   const restored=await undo(first.state);
    assert(originalOwned===await owned(restored),'Confirmed undo did not restore owned data');
   }]
  ];
