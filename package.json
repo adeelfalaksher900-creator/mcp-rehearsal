@@ -1,0 +1,14 @@
+{
+  "name": "mcp-rehearsal",
+  "version": "0.1.0",
+  "description": "Adapter-based workflow contract checks and a read-only MCP handshake probe.",
+  "type": "module",
+  "license": "MIT",
+  "exports": {".": "./src/index.mjs", "./probe": "./src/probe.mjs"},
+  "bin": {"mcp-rehearsal": "./bin/rehearse.mjs"},
+  "files": ["src", "bin", "examples", "README.md", "LICENSE", "docs"],
+  "scripts": {"test": "node --test", "demo": "node bin/rehearse.mjs --demo", "demo:bug": "node bin/rehearse.mjs --demo --bug snapshot-undo"},
+  "engines": {"node": "^22.22.2 || ^24.15.0 || >=26.0.0"},
+  "dependencies": {"@modelcontextprotocol/sdk": "1.32.1"},
+  "repository": {"type": "git", "url": "https://github.com/adeelfalaksher900-creator/mcp-rehearsal.git"}
+}

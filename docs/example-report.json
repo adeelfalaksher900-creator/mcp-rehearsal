@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "name": "Fictional inventory workflow",
+  "observationScope": "Pure JSON state returned by the fictional adapter. No external systems.",
+  "scope": "Disposable-fixture workflow contract checks. Not security certification or full MCP conformance.",
+  "passed": 10,
+  "failed": 0,
+  "checks": [
+    {
+      "id": "prepare-read-only",
+      "title": "Prepare does not write",
+      "status": "passed"
+    },
+    {
+      "id": "approval-required",
+      "title": "Commit requires explicit approval",
+      "status": "passed"
+    },
+    {
+      "id": "duplicate-replay",
+      "title": "Duplicate approval has no additional effect",
+      "status": "passed"
+    },
+    {
+      "id": "stale-context",
+      "title": "Changed context rejects the old proposal",
+      "status": "passed"
+    },
+    {
+      "id": "failure-atomicity",
+      "title": "Failed commit leaves its input intact",
+      "status": "passed"
+    },
+    {
+      "id": "undo-protected-add",
+      "title": "Undo preserves unrelated add",
+      "status": "passed"
+    },
+    {
+      "id": "undo-protected-edit",
+      "title": "Undo preserves unrelated edit",
+      "status": "passed"
+    },
+    {
+      "id": "undo-protected-remove",
+      "title": "Undo preserves unrelated remove",
+      "status": "passed"
+    },
+    {
+      "id": "undo-owned",
+      "title": "Undo restores the previous owned change",
+      "status": "passed"
+    },
+    {
+      "id": "undo-approval",
+      "title": "Undo also requires explicit approval",
+      "status": "passed"
+    }
+  ]
+}
