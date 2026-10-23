@@ -1,19 +1,20 @@
 # MCP Rehearsal
 
-Test approval and recovery contracts before an MCP workflow reaches a person.
+**Exercise approval and recovery contracts before an MCP workflow reaches a person.**
 
-An assistant can prepare a plausible action, then receive a duplicate request or discover that the world has changed. Undo can also overwrite a record someone edited afterward. MCP Rehearsal makes those application behaviors repeatable in disposable fixtures.
+![JavaScript](https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=111827)
+![Node.js](https://img.shields.io/badge/Runtime-Node.js-5FA04E?logo=nodedotjs&logoColor=white)
+![MIT](https://img.shields.io/badge/License-MIT-2563EB)
 
-It provides two separate entry points:
+[Quick start](#quick-start) · [Workflow checks](#workflow-checks) · [Adapter guide](docs/ADAPTERS.md) · [Example report](docs/example-report.md) · [Contributing](CONTRIBUTING.md)
 
-- A ten-check workflow harness using an adapter and explicit observation boundary. It executes configured writes and undo against disposable fixtures.
-- A read-only official-SDK probe for MCP 2025-11-25 initialization, the initialized notification, negotiated headers and first-page tool discovery. It never calls a tool.
+MCP Rehearsal gives developers repeatable fixtures for an easy-to-miss class of workflow failures: a duplicate commit, an action prepared against stale context, or an undo that erases somebody else's later edit. Its adapter-based harness tests ten application contracts and reports the observation boundary alongside the result.
 
-This is an independent MIT-licensed project created during the 2026 Amazon Developer Hackathon, alongside the Dayweave Alexa+ simulation. It is not an Amazon or MCP-maintainer product. It has not been published to npm.
+A separate, read-only probe uses the official MCP SDK to check initialization, the initialized notification, negotiated version headers and first-page tool discovery. **The probe never invokes a tool.** The workflow harness does execute configured writes and undo, so run it only against disposable fixtures or an authorized sandbox.
 
-## Run
+## Quick start
 
-Requires Node.js 24.15+ or 22.22.2+ and npm. No account, API key or paid service is needed for the examples.
+Use a Node version supported by `package.json`: `^22.22.2`, `^24.15.0` or `>=26.0.0`, with npm.
 
 ```sh
 git clone https://github.com/adeelfalaksher900-creator/mcp-rehearsal.git
@@ -23,83 +24,101 @@ npm test
 npm run demo
 ```
 
-The working inventory example passes ten workflow checks. This intentionally broken version exits with code 1 and fails three separate undo checks:
+The examples need no account, API key or paid service. To inspect the deliberately broken snapshot-undo adapter:
 
 ```sh
 npm run demo:bug
 ```
 
-For a server you are authorized to inspect, the probe only initializes and lists tools:
+A failing contract produces a nonzero exit code. This package is used from source; it has not been published to npm.
+
+## Two inspection paths
+
+```mermaid
+flowchart TD
+  A["Workflow adapter"] --> B["Disposable fixture"]
+  B --> C["Prepare, commit and undo checks"]
+  O["Independent observer"] --> C
+  E["Authorized MCP endpoint"] --> P["Read-only SDK probe"]
+  C --> R["Scoped report"]
+  P --> R
+```
+
+| Path | Executes | Evidence boundary |
+| --- | --- | --- |
+| Workflow harness | Adapter operations, writes and undo | Adapter state, declared projections and independent observer |
+| MCP probe | Initialize, initialized notification, `tools/list` | Handshake and first-page discovery only |
+
+## Workflow checks
+
+| Contract | What is inspected |
+| --- | --- |
+| Prepare without writes | Input and observer remain unchanged |
+| Explicit commit approval | Recognized approval rejection, followed by a successful approved change |
+| Duplicate-key replay | No additional state, observer or receipt change |
+| Stale but feasible context | Old proposal rejected; a fresh proposal succeeds |
+| Injected service rejection | Working baseline, classified failure and no observed change |
+| Undo after unrelated addition | Added record survives |
+| Undo after unrelated edit | Edited value survives |
+| Undo after unrelated removal | Removed record stays absent |
+| Undo a replacement | Previous owned projection restored |
+| Explicit undo approval | Rejection preserves state; confirmed undo succeeds |
+
+Positive controls reject always-error and no-op adapters. Connection, schema and timeout failures do not count as evidence of an intended approval or freshness rejection. An adapter should classify only errors it understands.
+
+Version 0.1.1 also checks that returned state agrees with the observer after commit and undo, protects confirmed-undo input immutability and rejects non-JSON proposals. The regression fixtures use an independently observed in-memory store.
+
+## Integrate an adapter
+
+```js
+import { rehearseWorkflow, formatMarkdown } from './src/index.mjs';
+import { fixtureAdapter } from './examples/fixture.mjs';
+
+const report = await rehearseWorkflow(fixtureAdapter(), { name: 'Inventory' });
+console.log(formatMarkdown(report));
+process.exitCode = report.failed ? 1 : 0;
+```
+
+Implement [the adapter contract](docs/ADAPTERS.md) to exercise another workflow. Define setup, cleanup, owned/protected projections, expected rejection categories and what the observer independently reads. Reports should stay deterministic and omit credentials and state snapshots.
+
+For an endpoint you are authorized to inspect:
 
 ```sh
 node bin/rehearse.mjs --probe https://your-server.example/mcp
 ```
 
-HTTP is accepted only for loopback servers. URLs containing credentials, query parameters or fragments are refused. Authentication can be supplied programmatically through an authorized fetch wrapper. Keep credentials out of code, command arguments and reports. The probe does not perform account linking or OAuth onboarding.
+The probe accepts HTTPS and loopback HTTP only. It rejects URLs with embedded credentials, query parameters or fragments. Programmatic callers can provide an authorized fetch wrapper; the probe does not handle account linking or OAuth onboarding. Keep credentials out of source, command arguments and reports.
 
-## Reuse the harness
+## Reading a result
 
-```js
-import {rehearseWorkflow, formatMarkdown} from './src/index.mjs';
-import {fixtureAdapter} from './examples/fixture.mjs';
+These are application contracts, not requirements imposed on every MCP tool. A boolean approval flag does not prove a person consented, and tool annotations do not prove behavior. The replay check exercises the same application idempotency key against advanced state.
 
-const report = await rehearseWorkflow(fixtureAdapter(), {name: 'Inventory'});
-console.log(formatMarkdown(report));
-process.exitCode = report.failed ? 1 : 0;
-```
+A pure state adapter covers returned/client-applied JSON. An external sandbox needs an observer that independently reads it. The current profile does not establish distributed concurrency, same-resource edits by another actor, crash consistency, partial-write rollback, production authorization, full protocol conformance or real human interaction. A passing report is scoped evidence, not a security certification.
 
-Implement the adapter contract in [docs/ADAPTERS.md](docs/ADAPTERS.md) to exercise your own workflow. [The example report](docs/example-report.md) contains no state snapshots or credentials.
+## Project map
 
-| Check | Evidence required |
+| Path | Purpose |
 | --- | --- |
-| Prepare without writes | Input and independent observer remain unchanged |
-| Explicit commit approval | Recognized approval rejection, then a successful approved change |
-| Duplicate-key replay | State, observer and receipt have no additional change |
-| Stale but feasible context | Old proposal rejected, fresh proposal succeeds |
-| Injected service rejection | Working baseline, classified failure, no observed change |
-| Undo after unrelated addition | Added record survives |
-| Undo after unrelated edit | Edited value survives |
-| Undo after unrelated removal | Removed record stays absent |
-| Undo a replacement | Exact previous owned projection is restored |
-| Explicit undo approval | Rejection preserves state, confirmed undo works |
+| `src/index.mjs` | Adapter contract, workflow checks and report formatting |
+| `src/probe.mjs` | Official-SDK handshake and discovery probe |
+| `bin/rehearse.mjs` | Command-line entry point |
+| `examples/fixture.mjs` | Working and deliberately broken inventory fixtures |
+| `test/` | Workflow, returned-state and SDK probe regression tests |
+| `docs/` | Adapter guide and example reports |
 
-Positive controls reject always-error and no-op adapters. Unexpected connection, schema or timeout errors do not establish an intended approval or freshness rejection. The adapter must classify only the exact errors it understands.
+## Context and references
 
-## What the results mean
+Created during the 2026 Amazon Developer Hackathon alongside the Dayweave Alexa+ simulation. Dayweave vendors this source and exercises its SDK-based handler against fictional client-carried state; its repository requires private reviewer access. MCP Rehearsal is the separate public contribution and is independent of Amazon and the MCP maintainers.
 
-These are configured **application contracts**, not requirements MCP imposes on every tool. The protocol leaves the interaction model open. A boolean approval flag does not prove a human consented. Tool annotations are hints, not behavioral proof.
-
-The replay check uses the same application idempotency key against advanced state. This differs from MCP's idempotency hint about repeated identical arguments and environmental effects.
-
-The observer and projections define the evidence boundary. A pure state adapter covers returned/client-applied JSON only. To cover an external sandbox, the observer must independently read that sandbox. The included example has no external effects. Rejection preservation for an injected precondition does not establish crash consistency, partial-write rollback, authorization or production safety.
-
-The current profile does not test another actor modifying the same owned resource, distributed concurrency, long-running tasks, protocol pagination, every transport/version combination, model quality or real human interaction. Passing is not a security certification or full MCP conformance result.
-
-## Dayweave integration
-
-Dayweave vendors the versioned source and runs it against its real SDK-based MCP Request/Response handler. Its adapter keeps the original $28 outing feasible while changing a $40 budget to $39, and injects independent appointment additions, edits and removals before undo. The observation boundary is the stateless server's returned/client-carried fictional state, not browser localStorage or a real calendar service.
-
-Primary project: https://github.com/adeelfalaksher900-creator/dayweave (private reviewer access required). Dayweave's testing instructions include the runnable adapter and reports. MCP Rehearsal is the separate public contribution.
-
-## Development and research
-
-The 20 self-tests include official SDK integration, deliberately broken workflows, independent-observer failure, classified rejection, deterministic output and CLI exit behavior. Source dependencies are pinned in package-lock.json. No telemetry is sent by the harness. The probe contacts only the endpoint explicitly supplied by its caller.
-
-The [official MCP Inspector](https://github.com/modelcontextprotocol/inspector) provides general server inspection. MCP Rehearsal focuses on repeatable application approval/recovery contracts.
-
-References:
-
-- [MCP tools and interaction model, 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)
+- [Official MCP Inspector](https://github.com/modelcontextprotocol/inspector)
+- [MCP tools and interaction model](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)
 - [MCP lifecycle](https://modelcontextprotocol.io/specification/2025-11-25/basic/lifecycle)
-- [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
-- [Hackathon rules](https://amazonappdev2026.devpost.com/rules)
+- [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)
 
-Codex assisted design, source implementation, tests and documentation under Adeel Falak Sher's project direction. No Amazon runtime, user study or external adoption is claimed.
+Codex assisted development under Adeel Falak Sher's project direction. No external adoption or user-study outcome is claimed.
 
-## License
+## Contributing and license
 
-MIT. The official MCP SDK and its dependencies retain their own licenses.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Include a minimal fictional fixture, expected and actual behavior, then run `npm ci` and `npm test`. Never post private household data, tokens or production logs.
 
-## 0.1.1 reliability review
-
-The harness now rejects stale undo responses even when an independent store was restored correctly. It checks returned owned and protected projections against that observer after commit and undo, enforces input immutability on every confirmed undo path, and rejects non-JSON proposals. Four reproductions failed against 0.1.0 before these fixes and pass as regression tests in 0.1.1. The public test fixtures include an independently observed in-memory store, not a production provider.
+[MIT](LICENSE). The official MCP SDK and other dependencies retain their own licenses.
